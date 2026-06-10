@@ -75,7 +75,14 @@ class KakeiboApp(tk.Tk):
         self.entries["memo"] = ttk.Entry(form, width=30)
         self.entries["memo"].grid(row=4, column=1, sticky="w", padx=5)
 
-        ttk.Button(form, text="追加", command=self._add_record).grid(row=5, column=0, columnspan=2, pady=10)
+        btn_frame = ttk.Frame(form)
+        btn_frame.grid(row=5, column=0, columnspan=2, pady=10)
+        ttk.Button(btn_frame, text="追加", command=self._add_record).pack(side="left", padx=4)
+        self.btn_update = ttk.Button(btn_frame, text="更新", command=self._update_record, state="disabled")
+        self.btn_update.pack(side="left", padx=4)
+        ttk.Button(btn_frame, text="キャンセル", command=self._cancel_edit).pack(side="left", padx=4)
+
+        self._editing_index = None
 
         list_frame = ttk.LabelFrame(frame, text="記録一覧", padding=5)
         list_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
@@ -93,7 +100,10 @@ class KakeiboApp(tk.Tk):
         self.tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        ttk.Button(frame, text="選択した記録を削除", command=self._delete_record).pack(pady=(0, 10))
+        btn_row = ttk.Frame(frame)
+        btn_row.pack(pady=(0, 10))
+        ttk.Button(btn_row, text="選択した記録を編集", command=self._load_for_edit).pack(side="left", padx=4)
+        ttk.Button(btn_row, text="選択した記録を削除", command=self._delete_record).pack(side="left", padx=4)
 
     def _build_summary_tab(self):
         frame = self.tab_summary
@@ -109,6 +119,59 @@ class KakeiboApp(tk.Tk):
 
         self.summary_text = tk.Text(frame, height=20, state="disabled", font=("Consolas", 11))
         self.summary_text.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+    def _load_for_edit(self):
+        selected = self.tree.selection()
+        if not selected:
+            return
+        idx = self.tree.index(selected[0])
+        r = sorted(self.records, key=lambda x: x["date"], reverse=True)[idx]
+        self._editing_index = self.records.index(r)
+
+        self.entries["date"].delete(0, "end")
+        self.entries["date"].insert(0, r["date"])
+        self.entries["type"].set(r["type"])
+        self.entries["category"].set(r["category"])
+        self.entries["amount"].delete(0, "end")
+        self.entries["amount"].insert(0, str(r["amount"]))
+        self.entries["memo"].delete(0, "end")
+        self.entries["memo"].insert(0, r["memo"])
+
+        self.btn_update.configure(state="normal")
+
+    def _update_record(self):
+        if self._editing_index is None:
+            return
+        date = self.entries["date"].get().strip()
+        kind = self.entries["type"].get()
+        category = self.entries["category"].get().strip()
+        amount_str = self.entries["amount"].get().strip()
+        memo = self.entries["memo"].get().strip()
+
+        if not date or not category or not amount_str:
+            messagebox.showwarning("入力エラー", "日付・カテゴリ・金額は必須です。")
+            return
+        try:
+            amount = int(amount_str.replace(",", ""))
+        except ValueError:
+            messagebox.showwarning("入力エラー", "金額は数値で入力してください。")
+            return
+
+        self.records[self._editing_index] = {
+            "date": date, "type": kind, "category": category, "amount": amount, "memo": memo
+        }
+        save_data(self.records)
+        self._cancel_edit()
+        self._refresh_list()
+
+    def _cancel_edit(self):
+        self._editing_index = None
+        self.btn_update.configure(state="disabled")
+        self.entries["amount"].delete(0, "end")
+        self.entries["memo"].delete(0, "end")
+        self.entries["date"].delete(0, "end")
+        self.entries["date"].insert(0, datetime.today().strftime("%Y-%m-%d"))
+        self.entries["category"].set("")
 
     def _add_record(self):
         date = self.entries["date"].get().strip()
