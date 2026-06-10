@@ -4,6 +4,7 @@ import json
 import os
 from datetime import datetime
 from collections import defaultdict
+from graph import show_graph_window
 
 DATA_FILE = "data.json"
 
@@ -104,6 +105,7 @@ class KakeiboApp(tk.Tk):
         self.month_var = tk.StringVar(value=datetime.today().strftime("%Y-%m"))
         ttk.Entry(ctrl, textvariable=self.month_var, width=10).pack(side="left", padx=5)
         ttk.Button(ctrl, text="集計", command=self._show_summary).pack(side="left")
+        ttk.Button(ctrl, text="グラフ表示", command=self._show_graph).pack(side="left", padx=(10, 0))
 
         self.summary_text = tk.Text(frame, height=20, state="disabled", font=("Consolas", 11))
         self.summary_text.pack(fill="both", expand=True, padx=10, pady=(0, 10))
@@ -173,9 +175,13 @@ class KakeiboApp(tk.Tk):
             lines.append("  (この月のデータがありません)")
 
         self.summary_text.configure(state="normal")
+
         self.summary_text.delete("1.0", "end")
         self.summary_text.insert("end", "\n".join(lines))
         self.summary_text.configure(state="disabled")
+
+    def _show_graph(self):
+        show_graph_window(self, self.records, self.month_var.get().strip())
 
 
 if __name__ == "__main__":
